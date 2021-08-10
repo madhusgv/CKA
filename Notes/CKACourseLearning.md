@@ -7,8 +7,8 @@
             > vaidate request
             > retrive data 
             > update ETCD
-            > scheduler
-            > kubelet
+            > Interface with scheduler
+            > Interface with kubelet
         2. Scheduler
         3. ETCD
             > install etcd
