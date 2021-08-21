@@ -1,5 +1,10 @@
 1. source <(kubectl completion bash)
 2. alias k=kubectl
+3. use --show-labels to list the nodes on node
+4. kubectl get <kind> --all-namespaces (List  the kind from all namespace)
+5. kubectl -n <namepspace> <command> <kind> <options>
+6. ex: kubectl -n kube-system get pods( list pods from specific namespace)
+
 
 Certification Tips - Imperative Commands with Kubectl
 While you would be working mostly the declarative way - using definition files, imperative commands can help in getting one time tasks done quickly, as well as generate a definition template easily. This would help save considerable amount of time during your exams.
