@@ -1,5 +1,11 @@
+
+URL
+===
+https://github.com/kodekloudhub/certified-kubernetes-administrator-course
+
 Certification Tips
 ====================
+
 1. Use kubectl run command to create pods/deployments/repicaset
 2. Create an NGINX Pod
     kubectl run nginx --image=nginx
@@ -377,6 +383,7 @@ Certification Tips
             '''
             2. kubectl label nodes <node-name> <label-key>=<label-value>
                 kubectl label nodes node01 size=Large
+
     6. Node Affinity
         1. Ensure pods are hosted on a particular nodes
         2. Helps user to provide advanced complex conditions to select nodes
@@ -456,25 +463,56 @@ Certification Tips
         b. kubescheduler.yaml
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 04. Logging and Monitoring
 ============================
-    1. Monitoring Kubernetes Cluster
+    1. Monitoring Kubernetes Cluster components
         a. node metris
         b. pod metrics
-    2. Kubernets does not provide inbuilt metrics collection
+        c. cpu, memeory, network, etc
+    2. Monotoring 
+        Kubernets does not provide inbuilt metrics collection
         a. metrics-server    
+            - 1 metric server per kubernetes cluster
+            - metric-server retrives the metrics from each of kubernetes nodes and pods and stores in memory
+            - Store the data only on memory
+            - Kubelet on each node collects the metrics from nodes and pods and shre it with metric server using k8s API
+            - Kubelet uses CAdvisor to collect the pod metrics
+            - minikube addons enable metrics-server
+            - other env. download and configure metrics-server(kubectl create -f deploy/1.8+/)
+            - kubectl top node
+                - cpu/memroy consumption on each node
+            - kubectl top pod
+    3. Logging 
+        a. kubectl logs -f <pod-name> <container-name>
+            - <pod-name> displays the log message of the pod with single contianer
+            - <container-name> displays the log message of the container with multiple contianer
+        b. "kubectl logs <pod-name> -c" to list all containers in the pod
+
+05. Application Lifecycle Management
+====================================
+    1. Updates and Rollout
+        a. Deployment 
+            a. When a deployment is created then a rollout is created with a version(version1), if application is updated then a another rollout os created with another version(version2)
+            b. kubectl rollout status <deployment-name>
+            c. kubectl rollout history <deployment-name>
+        b. Deployment strategy
+            a. Recreate
+            b. Rolling update(default)
+        c. Recreate
+            a. Bringdown all the old version application and deploy the new version application
+            b. This leads to application downtime
+        d. Rolloing update
+            a. Bringdown the application one by one and installing new version
+        e. Use kubectl apply command to change the pod configuration which leads to rollout/recreate
+        f. Upgrade
+            a. Deployment object create a replicaset for each upgrade
+        g. Rollback
+            a. kubectl rollout undo <deployment>
+    2. Command and arguments in pod Definitions
+        a. docker CMD command
+            - CMD ["sleep", "5"]
+            - ENTRYPOINT ["sleep"]
+            - --entrypoint
+        b. Command and arguments in Kubernetes Pod
+    3. 
+
