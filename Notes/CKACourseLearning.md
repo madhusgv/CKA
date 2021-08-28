@@ -514,5 +514,217 @@ Certification Tips
             - ENTRYPOINT ["sleep"]
             - --entrypoint
         b. Command and arguments in Kubernetes Pod
-    3. 
+        '''
+            apiVerion: v1
+            kind: Pod
+            metadata:
+            name: myapp-pod
+            labels:
+                app: myapp
+            spec:
+            containers:
+                - name: nginx-container
+                  image: nginx
+                  commands: ["sleep", "5000"]
+        ''''
+ 
+    3. ENV varible
+        a. env can be set as plain KeyValue or using ConfigMap or using Secrets
+            spec:
+                containers:
+                    - name: nginx-container
+                    image: nginx
+                    commands: ["sleep", "5000"]
+                    env:
+                        - name: MYENV_
+                          value: /home/madhu
+    4. ConfigMap
+        a. COnfigMaps are used to pass the configuration data using KV to kubernetes
+        b. Create configMap and inject into the Pod
+        c. configMap can be created using commands/manifestfiles
+            -Imparative Method
+                > kubectl create configmap <configmap-name> --from-literal=<key>=<value> --from-literal=<key1>=<value1>
+                > kubectl create configmap <configmap-name> --from-file=<path-to-file>
+            - Declarative Method
+                > kubectl apply -f configmap.yaml
+                    '''
+                    apiVerion: v1
+                    kind: configMap
+                    metadata:
+                    name: app-config
+                    data:
+                        APP_COLOR: blue
+                        APP_MODE: prod
+        d. commands
+            - kubectl get configmap
+            - kubectl describe configmap
+            - kubectl explain pods --recursive | grep envFrom -A3
+        e. Inject configMap to a pod
+            - Inject as single env in pod spec( env:)
+            - Inject as configMap in pof spec
+            - Inject from volumes
+            '''
+            apiVerion: v1
+            kind: Pod
+            metadata:
+                name: myapp-pod
+                labels:
+                    app: myapp
+            spec:
+                containers:
+                    - name: nginx-container
+                      image: nginx
+                      commands: ["sleep", "5000"]
+                      envFrom: 
+                        - configMapRef:
+                            name: app-config
+            ''''
+    5. Secrets
+        a. Used to store the secret values like password, etc.
+        b. Create Secret, Inject secret into a pod
+        c. Create Secret
+            - Imperative method
+                > kubectl create secret generic <secre-name>  --from-literal=<key>=<value>
+                >  kubectl create secret generic <secre-name>  --from-file=<path-to-file>
+            - Declarative method
+
+                > kubectl apply -f secret.yaml
+                    '''
+                    apiVerion: v1
+                    kind: Secret
+                    metadata:
+                    name: app-config
+                    data:
+                        db_host: mysql
+                        db_user: root
+                        db_password: password
+                    '''
+        d. specify the secsitive data in encoded format
+            echo -n 'mysql' | base64
+        e. decode the value using
+            echo -n 'xynde0=' | base64 --decode
+        e. commands
+            - kubectl get secrets
+            - kubectl describe secrets
+        f. Inject secret to pod
+            - Inject as single env in pod spec( env:)
+            - Inject as configMap in pof spec
+            - Inject from volumes
+            '''
+            apiVerion: v1
+            kind: Pod
+            metadata:
+                name: myapp-pod
+                labels:
+                    app: myapp
+            spec:
+                containers:
+                    - name: nginx-container
+                      image: nginx
+                      commands: ["sleep", "5000"]
+                      envFrom: 
+                        - secretRef:
+                            name: app-secret
+            ''''
+
+    6. Multi-Container Pods
+        a. Need for running dependent application run todather
+            - webserver and logging
+            '''
+            apiVerion: v1
+            kind: Pod
+            metadata:
+                name: myapp-pod
+                labels:
+                    app: myapp
+            spec:
+                containers:
+                    - name: web-app
+                      image: nginx
+                    - name: logging
+                      image: log-agent
+            ''''
+        b. Design patterns
+            - The Side car pattern
+            - The adapter pattern
+            - The ambassador pattern
+    7. InitCOntainers
+        a. initContianer specifed in pod spec will be started first and then start the remaing containers
+    8. Self Healing containers
+        a. Kubernetes supports self-healing applications through ReplicaSets and Replication Controllers
+        b. Kubernetes provides additional support to check the health of applications running within PODs and take necessary actions through Liveness and Readiness Probes.
+
+06. Cluster Maintenance
+========================
+    1. OS Upgrades
+        a. If a node goes down and comesback with in 5 mins(pod eviction timeout) then Kubelet restarts the pod and make it avialable, else kubernetes terminates the pod
+        b. In a planned maintenance, the following steps should be followedku
+            1. drain a node, so that all the pods runnig on that node will be moved to another node. 
+                > kubectl drain <node-name>
+            2. Once the drain is done the node will be maked as "cordon", so that this node will not be consided for scheduling
+                > kubectl cordon <node-name>
+            3. Once the node comesup then  the node should be uncordon( no auto rebalancing)
+                > kubectl uncordon <node-name>
+    2. Kubernetes Software versions
+        a. Kubernetes version contains following
+            - Major.Minor.Path( ex: v1.11.3)
+            - July 2015 - First Major version was released
+            - ETCD, Core dns will have different version as they are different, the remaing kubernetes components will be same version
+            - 
+    3. Cluster Upgrade Process
+        a. controlplane Components can be of different versions
+            - api-server - should be the higher version and remaining componets can be lower than api-server
+            - controller, scheduler can be 1 version lower
+            - kube-proxy , kubelet can be 2 version lower
+            - kubectl can be 1 version higher/ 1 version lower
+            - Kubernetes supports only 3 minor versions
+            - Upgrade cluster with 1 minor version at a time
+            - All Kubernetes could  providers have their tool to upgrade 
+            - Kubeadm tool can be used to upgrade (Master)
+                > kubeadm upgrade plan
+                > kubeadm upgrade apply
+                > apt-get upgrade -y kubelet=1.12.0-00
+                > systemctl restart kubelet
+            - Kubeadm tool can be used to upgrade (Worker)
+                > run "kubectl drain <worker-node>" on master
+                > apt-get -y kubeadm=1.12.0-00
+                > apt-get -y kubelet=1.12.0-00
+                > kubeadm upgrade node config --kubelet-version v1.12.0
+                > systemctl restart kubelet
+                > run "kubectl uncordon <worker-node>" on master
+            - Hardway
+    4. Backup and Restore
+        a. Backup canditates
+            - Resource configuration
+                > User declarative methods
+                > Store the manifests files in github
+                > Query the kube-apiserver and get the configuration and store
+                > kubectl get all --all-namespaces -o yaml
+                > Velero/ARK tools does the above
+            - ETCD Cluster
+                > --data-dir container the location of the data
+                > etcdctl_api=3 etcdctl snapshot save snapshot.db
+                > etcdctl_api=3 etcdctl snapshot status
+                > service kube-apiserver stop
+                > etcdctl_api=3 etcdctl restore snapshot.db --data-dir=/var/lib/data-from-etcdbackup
+                > modify --data-dir to --data-dir=/var/lib/data-from-etcdbackup
+                > systemctl daemon-reload
+                > service etcd restart
+                > service kube-apiserver start
+                > providing endponits, certificates
+                > if cluster is configured by kubeadm then chck if kubeadm provides a way to take the backup
+            - commands:
+                > export ETCDCTL_API=3
+                > etcdctl --cacert="/etc/kubernetes/pki/etcd/ca.crt" --cert="/etc/kubernetes/pki/etcd/server.crt" --key="/etc/kubernetes/pki/etcd/server.key" snapshot save /opt/snapshot-pre-boot.db
+                > etcdctl snapshot status /opt/snapshot-pre-boot.db
+                > etcdctl snapshot restore /opt/snapshot-pre-boot.db --data-dir=/var/lib/etcd-from-backup
+            - Persistance storage
+
+07. Security
+==============
+    1. 
+            
+
+    
+
 

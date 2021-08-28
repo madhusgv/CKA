@@ -4,8 +4,44 @@
 4. kubectl get <kind> --all-namespaces (List  the kind from all namespace)
 5. kubectl -n <namepspace> <command> <kind> <options>
 6. ex: kubectl -n kube-system get pods( list pods from specific namespace)
+7. cat /ect/*release*
+
+ETCD
+===== 
+export ETCDCTL_API=3
+etcdctl snapshot save -h
+--cacert, --cert  , --endpoints=[127.0.0.1:2379], --key
+etcdctl snapshot restore -h
+kubectl describe pod to verify the pod is created with correct image
+
+apt-mark unhold kubeadm && \
+apt-get update && apt-get install -y kubeadm=1.20.0-00 && \
+apt-mark hold kubeadm
+
+apt-get update && \
+apt-get install -y --allow-change-held-packages kubeadm=1.20.0-00
+
+kubeadm upgrade plan
+
+sudo kubeadm upgrade apply v1.20.0
+
+apt-mark unhold kubelet kubectl && \
+apt-get update && apt-get install -y kubelet=1.20.0-00 kubectl=1.20.0-00 && \
+apt-mark hold kubelet kubectl
+
+apt-get update && \
+apt-get install -y --allow-change-held-packages kubelet=1.20.0-00 kubectl=1.20.0-00
+
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
 
 
+ --cert-file=/etc/kubernetes/pki/etcd/server.crt
+--trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+
+
+Notes
+======
 Certification Tips - Imperative Commands with Kubectl
 While you would be working mostly the declarative way - using definition files, imperative commands can help in getting one time tasks done quickly, as well as generate a definition template easily. This would help save considerable amount of time during your exams.
 
