@@ -722,9 +722,561 @@ Certification Tips
 
 07. Security
 ==============
-    1. 
+    1. Kubernetes Security Primitives
+        - Secure Hosts
+            > Password based authentication disabled
+            > Ssh based authentication enabled  
+        - kube-apiserver
+            > First level of Authentication
+            > who can access ?
+            > what they can do?
+        - Authentication
+            > who can access ? 
+            > Defined by Authentication mechanism(userid,certificates)
+        - Authorization 
+            > what they can do?
+            > RBAC Authorization 
+            > ABAC, etc
+        - All the kube components are secured using TLS
+    2. Authentication
+        - Types of users
+            > Admin
+            > Developer
+            > End User
+            > Third party users
+        - Accounts
+            > can be created and used service accounts
+        - All users authentications is done through kube-apiserver
+            > password
+                - use the csv files with following columns, password, user,  user ID and group id
+                - --base-auth-file=myfile.csv
+
+            > token
+                - --token-authfile=token.csv
+            > certificates 
+    3. TLS Certificates
+        - Symmertic Encryption(Single key)
+        - ASymmertic Encryption(key(private key) and a lock(public key))
+        - ssh-keygen
+            > id_rsa
+            > id_rsa.pub
+        - openssl genrsa -out <mykey.key> 1024
+        - openssl rsa -in <mykey.key> -pubout > mykey.pem
+    4. TLS in Kubernetes
+        - Client Certificates
+            > Scheduler to server(kube-apiserver)
+            > Controller to server(kube-apiserver)
+            > kube-proxy to server(kube-apiserver)
+            > kube-apiserver to server(etcd)
+            > kube-apiserver to server(kubelet)
+            > kubelet to server(kubelet)
+        - Server Certificates
+            > etcd
+            > kube-apiserver
+            > kubelet
+        - Certificate Authority
+            > etcd CA
+            > Kubernetes CA
+        - Certificate Creation
+            1. Kubernetes CA(Certificate Authority)
+                > Generate key
+                    - openssl genrsa -out ca.key 1024
+                > Certificate Signing Request
+                    - openssl req -new -key ca.key -sub "/CN=KUBERNETES=CA" -out ca.csr
+                > Singn the Certificates
+                    - openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+            2. Client Certificate(Admin user)
+                > Generate key
+                    - openssl genrsa -out admin.key 1024
+                > Certificate Signing Request
+                    - openssl req -new -key admin.key -sub "/CN=kube-admin" -out admin.csr
+                > Singn the Certificates
+                    - openssl x509 -req -in admin.csr -CA ca.crt -CAKey ca.key -out admin.crt
+                > Adding group information with OU param makes the user as admin with previliges
+            3. Create the client certificates for Kube-Scheduler, Kube-Controller, kube-Proxy
+            4. Server Certificate(etcd)
+                > create the etcd certicificate as same as client certificates
+                > we must generate additional peer certificates
+            5. kube-apiserver
+                > All the names of kube-apiserver shuold be present in the certificates
+                > create openssl config file to provide alternate name of the apiserver
+                > apiserver needs following 
+                    - ca certificates
+                    - tls server certificate
+                    - etcd client certificate
+                    - kubelet client certificate
+            6. kubelet 
+                > create server certificates
+                > it will be named with node name(kubelet-node01)
+        - View Certificates
+            1. Need to know how the cluster is deployed
+                > hardway ( creatre certificates manually)
+                > kubeadm way
+            2. kubeadm way
+                > check the location of yaml file for each components and in the command section all the certificate information is filled.
+                > decode the certificate
+                    openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout 
+            3. inspect the logs 
+                > use the system service log(journalctl -u etd.service -l)
+                > kubectl logs etcd-master
+                > docker ps -a
+                > docker logs <container-id>
+    5. Kubernetes Certificates APIs
+        - CertificateSigninigRequest
+            > User creates a key and send it to admin for generating the Certificates
+                - openssl genrsa -out jane.key 2048
+            > Admin Create Certificates for the key shared by user
+                - openssl req -new-key jane.key -subj "/CN=jane" -out jane.csr
+            > Use this certificate create get it signed by CA
+                cat jane.csr | base64
+                '''
+                apiVersion: certificates.k8s.io/v1
+                kind: CertificateSigningRequest
+                metadata:
+                    name: jane
+                spec:
+                    groups:
+                    - system:authenticated
+                    usages:
+                    - digital signature
+                    - key enciperment
+                    - server auth
+                    request:
+                        <base64 output of certificate>
+                    Issuername: ""
+                    
+                ''''
+            > Commands
+                - kubectl get csr -o yaml
+                - kubectl certificate approve <csr-name>
+            > Decode the certiface got from kubectl get command 
+                echo "certifacte from kubectl get" | base64 --decode
+            > All the certifacte related tasks are done by kube-controller
+    6. KubeConfig
+        - kubectl authetication details are stonred in a file.This file called as kubeconfig file
+        - Kubeconfig file is stored in $HOME/.kube/config
+        '''
+        kubeconfig file
+        --server mykube:6443(cluster)
+        --client-key admin.key
+        --client-certificate admin.crt
+        --certificate-authority ca.crt
+        '''
+        - Cluster
+            > Development
+            > Production
+        - Users
+            > Admin 
+            > dev user
+        - Context
+            > Admin@production
+        - YAML
+            '''
+            apiVersion: v1
+            kind: Config
+            current-context: my-kube-admin@my-kube-playground
+            clusters:
+                - name: my-kube-playground
+                  cluster:
+                    certificate-authority: ca.crt
+                    server: http://my-kube:6443
+            contexts:
+                - name: my-kube-admin@my-kube-playground
+                  context: 
+                    cluster: my-kube-playground
+                    user: my-kube-admin
+                    namespace: default
+            users:
+                - name: my-kube-admin
+                  user:
+                    client-certificate: admin.crt
+                    client-key: admin.key
+            '''
+        - Commands
+            > kubectl config view
+            > kubectl config view --kubeconfig=<my-custom-config>
+            > kubectl config use-context <prod-user@production>
+            > kubectl config -h
+    7. API Groups
+        - Check the version of API Server and get pods
+            > curl http://kube-master:6443/version
+            > curl http://kube-master:6443/api/v1/pods
+        - Different endpoints
+            - /metrics
+            - /healthz
+            - /version
+            - /api
+            - /apis
+            - /logs
+        - Core group - /api
+            - /v1
+                > /pods
+                > /namespace
+                > /events
+                > /PV
+                > /PVC
+                > /rc and more
+        - Named Group - /apis
+            - More organized groups
+            - All new APIs are added into this group
+            - /apps
+                > /v1/deployments
+                > /v1/replicasets
+                > /v1/statefulsets
+            - /authentication.k8s.io
+        - kubectl proxy
+            - Enable proxy service to access the kubeapi-server
+    8. Authorization
+        - Authorization defines a access to an object in kubernetes
+        - Different Mechanishm of Authorization
+            > Node
+            > Attribute based Authorization
+            > Role based Authorization
+            > webhook
+        - Node Authorizer
+            > Kubelet requests are authorzied by Node Authorizer
+        - Attribute based Authorization
+            > Group of user with set of permissions
+                - view Pod
+                - Create Pod
+                - Delete Pod
+            > Use 'Kind: Ploicy' to define the ABAC
+        - RBAC
+            > Create a all Role for all set of users
+            > Reduces the manual work 
+            > Standard approch
+        - webhook
+            > External Authorization
+        - AlwaysAllow, AlwaysDeny
+        - These modes are set in  --authorization-mode=Node, RBAC, Webhook
+    9. RBAC
+        - k8s provides RBAC authorization as an object
+        - Create Role
+            '''
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: Role
+            metadata:
+                name: developer
+            rules:
+                - apiGroups: [""]
+                  resources: ["pods"]
+                  verbs: ["list", "get", "create", "update", "delete"]
+
+            '''
+        - Link the user to the Role
+            Kind: RoleBinding
+            subjects: 
+            - Kind: User
+        - Commands:
+            > Kubectl get roles
+            > kubeclt get rolebindings
+            > kubectl describe role <role-name>
+            > kubectl describe rolebinding <role-binding-name>
+            > kubectl auth can-i create deployments
+            > kubectl auth can-i delete nodes
+            > kubectl auth can-i delete nodes --as <user-name>
+            > kubectl auth can-i create pods --as <user-name> --namespace <test>
+        - Resource Names
+            '''
+            apiVersion: rbac.authorization.k8s.io/v1
+            kind: Role
+            metadata:
+                name: developer
+            rules:
+                - apiGroups: [""]
+                  resources: ["pods"]
+                  verbs: ["list", "get", "create", "update", "delete"]
+                  resourceNames: ["blue-pod", "green-pod"]
+            '''
+        - Sample YAML to create role and rolebindings
+            ---
+            kind: Role
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+            namespace: blue
+            name: deploy-role
+            rules:
+            - apiGroups: ["apps", "extensions"]
+            resources: ["deployments"]
+            verbs: ["create"]
+
+            ---
+            kind: RoleBinding
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+                name: dev-user-deploy-binding
+                namespace: blue
+                subjects:
+                - kind: User
+                  name: dev-user
+                  apiGroup: rbac.authorization.k8s.io
+                roleRef:
+                    kind: Role
+                    name: deploy-role
+                    apiGroup: rbac.authorization.k8s.io
+
+            ---
+    10. Cluser Roles
+        - Cluster Scoped are used to group nodes, PV, clusterroles, clusterrolebindings, CSR, namespace
+        - kubectl api-resources namespaced=true
+        - Clusterroles can be used to  create role to mange node realted opetations
+            ---
+                apiVersion: rbac.authorization.k8s.io/v1
+                kind: ClusterRole
+                metadata:
+                namespace: blue
+                name: cluster-admin
+                rules:
+                - apiGroups: [""]
+                resources: ["nodes"]
+                verbs: ["create"]
+            ---
+        - Clusterrolebindings can be used to  bind with the role to mange node realted opetations
+            ---
+                apiVersion: rbac.authorization.k8s.io/v1
+                kind: ClusterRoleBinding
+                metadata:
+                    name:  cluster-admin-role-binding
+                Subjects:
+                    - Kind: User
+                      name: cluster-admin
+                      apiGroup: rbac.authorization.k8s.io
+                roleRef:
+                    - kind: CluserRole
+                      name: cluster-administrator
+                      apiGroup: rbac.authorization.k8s.io
+            ---        
+        - Sample YAML to create cluser role and binding for a user
+            ---
+            kind: ClusterRole
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+            name: node-admin
+            rules:
+            - apiGroups: [""]
+            resources: ["nodes"]
+            verbs: ["get", "watch", "list", "create", "delete"]
+
+            ---
+            kind: ClusterRoleBinding
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+            name: michelle-binding
+            subjects:
+            - kind: User
+            name: michelle
+            apiGroup: rbac.authorization.k8s.io
+            roleRef:
+            kind: ClusterRole
+            name: node-admin
+            apiGroup: rbac.authorization.k8s.io
+        
+            ---
+            kind: ClusterRole
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+            name: storage-admin
+            rules:
+            - apiGroups: [""]
+            resources: ["persistentvolumes"]
+            verbs: ["get", "watch", "list", "create", "delete"]
+            - apiGroups: ["storage.k8s.io"]
+            resources: ["storageclasses"]
+            verbs: ["get", "watch", "list", "create", "delete"]
+
+            ---
+            kind: ClusterRoleBinding
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+            name: michelle-storage-admin
+            subjects:
+            - kind: User
+            name: michelle
+            apiGroup: rbac.authorization.k8s.io
+            roleRef:
+            kind: ClusterRole
+            name: storage-admin
+            apiGroup: rbac.authorization.k8s.io
+    11. Service Account
+        - User Account
+        - Service Account
+            > Used by application to communicate b/w applications.
+            > To Create : kubectl create serviceaccount <name>
+            > To get : kubectl get serviceaccount <name>
+            > kubectl describe serviceaccount <name>
+            > It creates a token automatically. This token is stored as secret object
+            > To view the secret object:  kubectl describe secret <name>
+
+    12. Image Security
+        - image: nginx - This is expansed as below
+            > docker.io/nginx/nginx ( URL(Registry)/user(acoount)/imagename(repo))
+            > Registry
+                - docker.io(dcoker)
+                - gcr.io (google)
+            >  Private registry
+                > docker login <private-registry.io>
+                > docker run private-registry.io/apps/my-app
+            > To login with private registory , create a secret 
+                > example for docker:
+                    kubectl create secret docker-registry regcred --docker-server=\
+                            --dokcer-username=\
+                            --dokcer-password=\
+                            --dokcer-email=\
+            > 'imagePullSecrets' section in the contaer spec, gets the secret name to login with the registry
+    13. Security Contexts
+        - Secutiry settings can be configured at pod level/ container level
+        - 'SecurityContext' in pod spec metadata
+        - Sample YAML
+        ---
+            apiVersion: v1
+            kind: Pod
+            metadata:
+            name: ubuntu-sleeper
+            namespace: default
+            spec:
+            securityContext:
+                runAsUser: 1010
+            containers:
+            - command:
+                - sleep
+                - "4800"
+                image: ubuntu
+                name: ubuntu-sleeper
+
+            apiVersion: v1
+            kind: Pod
+            metadata:
+            name: ubuntu-sleeper
+            namespace: default
+            spec:
+            containers:
+            - command:
+                - sleep
+                - "4800"
+                image: ubuntu
+                name: ubuntu-sleeper
+                securityContext:
+                capabilities:
+                    add: ["SYS_TIME"]
+    14. Network Policy
+        - Application
+            > Database POD        
+            > API POD
+            > Webserver POD
+
+        - Ingress
+            > Accecpt traffic on a specifc port(policy to restrict incoming traffic)
+        - Egress
+            > Allow traffic on a specific port(Policy to allow outgoing traffic)
+        - Network Security
+            > By Default "All Allow" rule is applied for all pods to communicate with each other.
+        - Network Policy is a kubecrnetes object
+            > Policy can be : Only allow ingress trafic from API
+            > Label the pod and seclect the network ploicy using selector
+            > Network policies are suppprted by following network componets only
+                - kube-router
+                - Calico
+                - Romana
+                - Weave-net
+            > Following n/w compnents does not support n/w policy
+                - Flannel
+            > Sample YAML 
+                - To get reqeust from API pod from prod namespce and 192.185.3.2/32 - Used Ingress Rule
+                - To send data to back up server - 192.185.3.2/80 - Used Egress Rule
+            ---
+            apiVersion: networking.k8s.io/v1
+            kind: NetworkPolicy
+            metadata:  
+                name: db-policy
+            spec:
+                podSelector:
+                    matchLabels:
+                        role: db
+                policyTypes:
+                    - Ingress
+                    - Egress
+                ingress:
+                    - from:
+                        - podSelector:
+                            - matchLabels:
+                                name: api-pod
+                          namespaceSelector:
+                            - matchLabels:
+                                name: prod
+                        - ipBlock:
+                            cidr: 192.185.3.2/32
+                        ports: 
+                            - protocol: TCP
+                              port: 3306
+                egress:
+                    - to:
+                        - ipBlock:
+                            cidr: 192.185.3.2/32
+                        ports: 
+                            - protocol: TCP
+                              port: 80                              
+
+                ---
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                name: internal-policy
+                namespace: default
+                spec:
+                podSelector:
+                    matchLabels:
+                    name: internal
+                policyTypes:
+                - Egress
+                - Ingress
+                ingress:
+                    - {}
+                egress:
+                - to:
+                    - podSelector:
+                        matchLabels:
+                        name: mysql
+                    ports:
+                    - protocol: TCP
+                    port: 3306
+
+                - to:
+                    - podSelector:
+                        matchLabels:
+                        name: payroll
+                    ports:
+                    - protocol: TCP
+                    port: 8080
+
+                - ports:
+                    - port: 53
+                    protocol: UDP
+                    - port: 53
+                    protocol: TCP
+
+
+
+        
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
             
 
     
 
 
+
+08. Storage
+============
+    
