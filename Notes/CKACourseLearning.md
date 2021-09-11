@@ -762,6 +762,7 @@ Certification Tips
             > id_rsa.pub
         - openssl genrsa -out <mykey.key> 1024
         - openssl rsa -in <mykey.key> -pubout > mykey.pem
+        - example to read cert - openssl x509 -in /etc/kubernetes/pki/apiserver.crt -text -noout
     4. TLS in Kubernetes
         - Client Certificates
             > Scheduler to server(kube-apiserver)
@@ -1214,7 +1215,7 @@ Certification Tips
                             cidr: 192.185.3.2/32
                         ports: 
                             - protocol: TCP
-                              port: 80                              
+                              port: 80 
 
                 ---
                 apiVersion: networking.k8s.io/v1
@@ -1252,31 +1253,145 @@ Certification Tips
                     - port: 53
                     protocol: UDP
                     - port: 53
-                    protocol: TCP
-
-
-
-        
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-            
-
-    
-
-
+                    protocol: TCP 
 
 08. Storage
 ============
-    
+    1. Storage in Docker
+        - /var/lib/docker
+            > aufs
+            > containers
+            > images(ubultu:18.0.0)
+            > volumes
+        - Layered Architecture
+            > In dockerfile each command creates layer on top of current container
+            > for ex: from ubuntu; run api-install python;run pip install flask;copy . /opt/source;ENTRY_POINT 
+                > This creates layer on top of each
+                > This is called Image Layer(readonly)
+            > Container Later
+                > This is writable layer where container files are stored
+                > Available only when containers are running
+            > COPY-ON-WRITE
+                > modilfed files are taken from container space
+            
+    2. Docker Volume  
+        - docker volume create data_volumes
+        - docker run -v data_volume:/var/lib/mysql mysql(volume mount)
+        - docker run -v /data/mysql:/var/lib/mysql mysql(bind mount)
+        - New command: docker run --mount type=bind,source=/data/mysql,target=/var/lib/mysql sql
+        
+    3. Storage drivers
+        > Docker uses Storage drivers to create layered architecture
+            > AUFS
+            > ZFS
+            > DTRFS
+            > Device Mapper
+            > overlay
+            > overlay2
+        > 
+    4. Volume Driver Plugins
+        > Local
+        > Azure file storage
+        > Convoy
+        > Dgitial Ocean block storage
+        > etc.
+        > docker run -it --name mysql --volume-driver rexray/ebs --mount src=ebs-vol,target=/var/lib/mysql mysql
+    5. Container Storage Interface
+        > Container Runtime Interface (CRI )
+        > Container Network Interface(CNI)
+        > Conatianer Storage Interface(CSI)
+            - Amazon EBS
+            - portworx
+            - DELL EMC
+            - HPE
+            - Hitachi
+        > Kubernetes will call the interface gRPC method and implementor library shuold have the code the perform the actions
+            - CreateVolume
+            - DeleteVolume
+            - ControllerPublishVolume
+    6. Kubernetes Volumes
+        -   apiVerion: v1
+            kind: Pod
+            metadata:
+            name: myapp-pod
+            labels:
+                app: myapp
+            spec:
+            containers:
+                - name: nginx-container
+                  image: nginx
+                  volumeMounts:
+                    - mountPath: /opt
+                      name: data-volume
+                volume:
+                    - name: data-volume
+                      hostPath:
+                        path: /data
+                        type: Directory
+                      awsElecticBlockStore:
+                        volumeID: <volume-id>
+                        fsType: ext4
+    7. Persistant Volumes
+        > sample YAML
+        apiVersion: v1
+        kind: PersistantVolume
+        metadata:
+            name: pv-v1
+        spec:
+            accessModes:
+                - ReadWriteOnce
+            capacity:
+                storage: 1Gi
+            hostPath:
+                path: /tmp/data
+        > Commands
+            - kubectl get persistentvolume 
+    8. Persistent Volume Claim
+        > Claims make the volume avaiable to the cluster
+        > Each PV bind with PVC
+        > PVC automatically find the PV already created and bind with it.
+        > Sample YAML
+        apiVersion: v1
+        kind: PersistantVolumeClaim
+        metadata:
+            name: pv-v1
+        spec:
+            accessModes:
+                - ReadWriteOnce
+            resources:
+                requests:   
+                    storage: 500Mi
+        > Commands
+            - kubectl get persistentvolumeclaim
+        > Sample YAML with PVC and POD
+            apiVersion: v1
+            kind: Pod
+            metadata:
+            name: mypod
+            spec:
+            containers:
+                - name: myfrontend
+                image: nginx
+                volumeMounts:
+                - mountPath: "/var/www/html"
+                    name: mypd
+            volumes:
+                - name: mypd
+                persistentVolumeClaim:
+                    claimName: myclaim
+    9. Storage Class
+        > PV Needs a manual creation of disk. This is called static provisonig volumes
+        > With Storage class, we can provide the provisioner to craete dynamic volumes.This is called dynamic provision.
+        > Sample YAML (For GCE)
+            apiVersion: storage.k8s.io/v1
+            kind: StorageClass
+            metadata:
+                name: google-class
+            provisoner: kubernetes.io/gcd-pd
+        > PVC needs storage class. and does not need PV. PV is automatocally created by StorageClass
+            
+
+
+
+        
+        
