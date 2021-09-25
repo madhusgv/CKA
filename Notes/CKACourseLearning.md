@@ -1389,9 +1389,271 @@ Certification Tips
                 name: google-class
             provisoner: kubernetes.io/gcd-pd
         > PVC needs storage class. and does not need PV. PV is automatocally created by StorageClass
-            
-
-
-
         
-        
+08. Networking
+===============
+    1. Switching Routing
+        > Switching
+            - Switch Connects 2 computers using interface in each computer
+            - ip link - lists the Interface (eth0)
+            - ip addr to assign the ip address 
+            - ip addr add <ip> dev eth0( /etc/network/interfaces)
+        > Routing
+            - Connect two network
+            - route command to displays the routing table
+            - ip route
+            - ip route add  <router-ip> via <gateway-ip> command 
+            - Gatewat acts as door for router
+            - /proc/sys/net/ipv4/ip_forward 
+            - /etc/sys
+        > Default Gateway
+    2. DNS
+        > Name Resoulution
+            - Name the remote system in /etc/host
+        > Machine continas all remotesystem name is called Domain Name Server(/etc/resolv.conf)
+        > www.google.com
+            - Root : '.'
+            - Top Level Domain  : '.com'
+            - SubDomain : www drive maps apps
+        > Record types
+            A         webserver      192.168.1.1
+            AAAA      web-server     <ip-v6>
+            CNAME     food.web-server eat.web-server, hungry.web-server
+        > nslookup to look for a host in DNS
+        > dig 
+    3. Core DNS
+        > There are many DNS server solutions out there, in this lecture we will focus on a particular one – CoreDNS
+        > Run the executable to start a DNS server. It by default listens on port 53
+    4. Network NameSpaces
+        > ROuting Table
+        > ARP table
+        > Everycontians has its own namespaces
+        > ip netns exec <name-space > <ip link > command to create namespace and assign ip
+        > ip -n red link
+        > arp command
+        > ip link add veth-red type veth peer name veth-blue
+        > ip link set veth-red netns red
+        > ip link set veth-blue netns blue
+        > ip -n red link set veth-red up
+        > ip -n blue link set veth-blue up
+        > Needs virtual switch ( Linux Bridge)
+        > NAT
+        > While testing the Network Namespaces, if you come across issues where you can't ping one namespace from the other,
+         make sure you set the NETMASK while setting IP Address. ie: 192.168.1.10/24
+         ip -n red addr add 192.168.1.10/24 dev veth-red
+        > Another thing to check is FirewallD/IP Table rules. Either add rules to IP Tables to allow traffic from one namespace to another. Or disable IP Tables all together (Only in a learning environment).
+    5. Docker Networking
+        > None Network(docker run --network none nginx)
+        > Host Network (docker run --network host nginx)
+        > Brigde Network
+            - docker network ls
+            - ip link
+        > Docker automatically create namespace (Name starts with b3165 )
+    6. CNI (Container Netwkrin Interface)
+        > Common interface to implement networking operations
+        > Plugins implements CRI provies all featuers
+        >  weave, calico, flannel, etc
+        > DOcker doest not implment CNI. it implements CNM
+        > K8s create Dcoker contrainr with None Network and assin netwrk later using plugins
+    7. Cluster Netwokring
+        > Master 
+            - 6443 for Api server
+            - 10250 for kubelt
+            - 10251 for scheduler
+            - 10251 for controller
+    8. Commands
+        ifconfig -a : show the network interfaces
+        ifconfig <interface-name>
+        ip link eth0
+        arp node01 - show ip and mac 
+        ip route show default - Show the router/gateway info
+        netstat -natulp | grep kube-scheduler
+        netstat -anp | grep etcd
+        ip r
+    9. POD Networking
+        - Requirement
+            > Every piod should have own uniqe IP Address
+            > Every piod should be able to communicate
+        - CNI
+            > Add Section
+                - Create veth pair 
+                - Attach veth pair
+                - Assisgn IP Address
+                - Bring Up Interface
+                ip -n <namespace> link set ---
+            > Delete section
+                - Delete veth pair
+                ip link del ---
+            > kubelet --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/etc/cni/bin
+    10. CNI in Kubernetes
+        - CNI plugin is configued in kubelet service
+            kubelet --cni-conf-dir=/etc/cni/net.d --cni-bin-dir=/etc/cni/bin
+            ps -aux | grep kubelet
+            ls /opt/cni/bin - 
+            ls /etc/cni/net.d - bridge config file
+            /opt/cni/bin
+            ifconfig - show the network interfaces
+            ifconfig <interface-name>
+            ip link eth0
+            arp node01 - show ip and mac 
+            ip route show default - Show the router/gateway info
+            netstat -anp | grep etcd
+
+
+    11. CNI WeaveWorks
+        - Weaveworks plugin agent is deployed in each node to communicate with each other and serve the request from other node
+        - Each agent create a brigde network on a node and name it as "weave"
+        - Single pod may connected with multiple bridge(ex: docker bridge, weave bridge)
+        - Deploy Weave
+            - Deploy as pods or deamonSet
+                kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+                kubectl logs weave-net-5gcmb weave -n kube-system
+    12. IP Address Management
+        - Assigning IP address to a container and pod is resposible of CNI
+        - CNI comes with 
+            - host-local plugin
+            - DHCP Plugin
+        - weave assigns ip range of 10.32.0.0/12
+    13. Service Networking
+        - Service is to expose a pod on a cluser
+        - Service created for cluser , but pod is created for Node
+        - ClusterIP service works on cluster only
+        - NodePort - Can access outside of cluster
+        - Services are created and exposed via kube-proxy  
+        - Services are assiged with pre-defined ipaddresses( kubeapiserver options defines this rage --service-clsuter-ip-range ipNet)
+            - kube-proxy forwared the requerst comes to a serice to a appropriate pod
+        - kube-proxy
+            > proxy-mode
+                - userspace
+                - ipdtables
+                - ipvs
+    14. DNS
+        - K8s deploys k8s DNS servers by default
+        - All Services are registered to DNS Server
+        - If all pods/services are in same namespcae then the serice can  be accessed using service name itself(web-service)
+        - If different namespace then append namespace name(apps) in with the service name(web-service.apps)
+    15. Core DNS
+        - Core DNS runs as POD
+        - /etc/coredns/corefile
+        - /etc/resolv.conf
+        - k get configmap -n kube-system
+        - host web-service
+    16. Ingress
+        - Difference b/w Services and Ingress
+        - Ingress sits on top of service , acts as a load balance for rout thr trffic b/w different services of same webapp
+            > Ingress exposes the applications externaly
+            > Provides SSL connections
+            > Ingress can be configred as a k8s components
+        - Ingress Configurestion
+            > Ingress controller
+                - Does not comes by default with k8s
+                - Deploy GCE, HAPROXY, Nginx
+                - Deply Nginx as a deployment(nginx-ingress-controller)
+                - Need a service 
+                - COnfigMap object shuold be created
+                - Must pass 2 ENV
+                    > POD_NAME
+                    > POD_NAMESPACE
+                - Needs Service accoint with role and rolebinding
+            > Ingress Resources
+                - Set of rules and configurations
+                - apiversion: extensions/v1beta1
+                  kind: Ingress
+                  metadata:
+                    name: <myname> 
+                  spec:
+                    rules
+                        - host: abc.com
+                          http:
+                            - paths:
+                                backend:
+                                    serviceName:<>
+                                    servicePort: <>
+        - Ingress - Annotations and rewrite-target
+            Different ingress controllers have different options that can be used to customise the way it works. NGINX Ingress controller has many options that can be seen here. I would like to explain one such option that we will use in our labs. The Rewrite target option.
+
+
+
+            Our watch app displays the video streaming webpage at http://<watch-service>:<port>/
+
+            Our wear app displays the apparel webpage at http://<wear-service>:<port>/
+
+            We must configure Ingress to achieve the below. When user visits the URL on the left, his request should be forwarded internally to the URL on the right. Note that the /watch and /wear URL path are what we configure on the ingress controller so we can forwarded users to the appropriate application in the backend. The applications don't have this URL/Path configured on them:
+
+            http://<ingress-service>:<ingress-port>/watch --> http://<watch-service>:<port>/
+
+            http://<ingress-service>:<ingress-port>/wear --> http://<wear-service>:<port>/
+
+
+
+            Without the rewrite-target option, this is what would happen:
+
+            http://<ingress-service>:<ingress-port>/watch --> http://<watch-service>:<port>/watch
+
+            http://<ingress-service>:<ingress-port>/wear --> http://<wear-service>:<port>/wear
+
+
+
+            Notice watch and wear at the end of the target URLs. The target applications are not configured with /watch or /wear paths. They are different applications built specifically for their purpose, so they don't expect /watch or /wear in the URLs. And as such the requests would fail and throw a 404 not found error.
+
+
+
+            To fix that we want to "ReWrite" the URL when the request is passed on to the watch or wear applications. We don't want to pass in the same path that user typed in. So we specify the rewrite-target option. This rewrites the URL by replacing whatever is under rules->http->paths->path which happens to be /pay in this case with the value in rewrite-target. This works just like a search and replace function.
+
+            For example: replace(path, rewrite-target)
+            In our case: replace("/path","/")
+
+
+
+            apiVersion: extensions/v1beta1
+            kind: Ingress
+            metadata:
+            name: test-ingress
+            namespace: critical-space
+            annotations:
+                nginx.ingress.kubernetes.io/rewrite-target: /
+            spec:
+            rules:
+            - http:
+                paths:
+                - path: /pay
+                    backend:
+                    serviceName: pay-service
+                    servicePort: 8282
+
+
+            In another example given here, this could also be:
+
+            replace("/something(/|$)(.*)", "/$2")
+
+            apiVersion: extensions/v1beta1
+            kind: Ingress
+            metadata:
+            annotations:
+                nginx.ingress.kubernetes.io/rewrite-target: /$2
+            name: rewrite
+            namespace: default
+            spec:
+            rules:
+            - host: rewrite.bar.com
+                http:
+                paths:
+                - backend:
+                    serviceName: http-svc
+                    servicePort: 80
+                    path: /something(/|$)(.*)
+
+         - create service:
+            kubectl -n ingress-space expose deployment  ingress-controller --name ingress --port 80 --taeget-port 80 --type NodePort
+
+
+
+    
+
+
+
+
+    
+         
+
+
