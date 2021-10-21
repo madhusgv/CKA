@@ -27,6 +27,7 @@ kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl versio
 then run the kubectl get pods -n kube-system to see the status of weave-net pods.
 Note :- 10.40.56.3 IP address is used here as an example. It may be different in your assigned lab.
 
+kubectl logs <weave-pod-name> weave -n kube-system
 
 ETCD
 ===== 

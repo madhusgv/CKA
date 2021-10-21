@@ -1390,7 +1390,7 @@ Certification Tips
             provisoner: kubernetes.io/gcd-pd
         > PVC needs storage class. and does not need PV. PV is automatocally created by StorageClass
         
-08. Networking
+09. Networking
 ===============
     1. Switching Routing
         > Switching
@@ -1645,6 +1645,168 @@ Certification Tips
 
          - create service:
             kubectl -n ingress-space expose deployment  ingress-controller --name ingress --port 80 --taeget-port 80 --type NodePort
+    
+
+10. Design And Install Kubernetes Cluster
+==========================================
+    1. Design K8s Cluster
+        - Education
+            - MiniKube
+            - Single Node cluser
+        - Development and LeaTesting
+            - Multi Node Cluster with Single Master and Multiple workers
+            - Setup Using Kubeadm tool or quick provision on GCP , AWS or AKS
+        - Hosting Production
+            - Highly avualble with multiple master and multiple worker nodes
+            - Kubeadm, 
+            - Upto 5000 Nodes
+            - Upto 150000 Pods
+            - Upto 300000 total Container
+            - Upto 100 Pods Per node
+        - Cloud or Onprem
+            - Use Kubeadm for on-Perm
+            - GKE for GCP 
+            - Kops for AWS
+            - Azure Kubernetes Services(AKS) for Azure
+        - Storage
+            - 
+        - Node
+            - Physical or virtual MAchine
+            - 64 bit linux machine
+    2. Choosing Kubernetes Infrastructure
+        - MiniKube 
+            - Deploys Vms automatically
+        - Kubeadm
+            - VMs should be ready
+            - Single or multinode cluster
+        - Trunkey Solutions
+            - You provision VMs
+            - You Configure Vms
+            - You Maintain VMs by yourselfs
+            - OpenShift 
+            - Cloud Foundry Container Runtime
+            - VMware Cloud PKS
+            - Vagrant
+        - Hosted Solutions
+            - Kubernetes As a service
+            - Provider provision VMs
+            - Provider installs Kubernetes and Maintains Vms
+            - GKE
+            - OpenShit Online
+            - Azure (AKS)
+            - EKS(Amazon)
+    3. HA Kubernetes Cluster
+        - Multiple Master(two) Node/Control Plane
+        - API Server(ACtive-Active) on both the masters are active at any point in time
+            - Use Load Balancer
+        - Controller Manger/Scheduler(Active-Passive)
+            - Use Leader Elect option
+            - kube-controller-manager --leader-elect true
+        - ETCD
+            - Stacked Topology- Part of Contol plane Node
+            - External ETCD Topology
+    4. ETCD HA
+        - ETCD Distributed Key-Value Store, Simple , fast and reliable
+        - Leader-follower
+        - Write is done by Leader only
+        - Leader send the write update to follower 
+        - Follower forward to the writeLeader
+        - RAFT Protocol is used to elect
+        - Quorum = N/2+1
+        - Odd number of master is recommeded
+    5. Kubernetes Hardway
+        > https://www.youtube.com/watch?v=uUupRagM7m0&list=PL2We04F3Y_41jYdadX55fdJplDvgNGENo
+        > https://github.com/mmumshad/kubernetes-the-hard-way
+
+11. Introduction to Kubeadm
+===========================
+    1. Steps
+        - Provision Multiple VMs
+        - Container runtime
+        - Install Kubeadm tool
+        - Initialize Master server
+        - ENsure Network conectivity is up on all worker node
+        - Join Worker Node
+    2. Docs
+        - https://github.com/kodekloudhub/certified-kubernetes-administrator-course
+        - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+    
+    3. Deploy with kubeadm - Provision VMs with Vagrant
+
+        - 
+    4. Commands
+        - kubelet --version    
+        - kubeadm token create --print-join-command
+12. End to End Test
+===================
+https://www.youtube.com/watch?v=eJQ-Yla85rM&list=PL2We04F3Y_41jYdadX55fdJplDvgNGENo&index=19
+
+13. TroubleShooting
+=====================
+    1. Application Failure
+        - Check the URL
+        - Check the service ( k describe svc)
+        - Check the pod ( k describe svc)
+        - check the db svc
+        - check the db pod
+    2. Control Plane failure
+        - Check the status of node
+        - Check status of pods
+        - Check status of pods in kube-system
+        - Check the status of services(service status kubelet)
+        - root@controlplane:/etc/kubernetes/manifests# kubectl -n kube-system logs kube-controller-manager-controlplane
+    3. worker Node failure
+        - kubectl describe node 
+        - top
+        - df -h
+        - kubelet service ( certificates, Issuer)
+        - service kubelet start
+        - journalctl -u kubelet -f
+        - kubectl cluster-info
+        - systemctl status kubelet
+        - systemctl start kubelet
+        - systemctl restart kubelet
+    4. Network
+        - Check for installation of CRI plugins(weave, flunnel,etc.)
+14. Other Topics
+==================
+    1. JSON Path
+        In the upcoming lecture we will explore some advanced commands with kubectl utility. But that requires JSON PATH. If you are new to JSON PATH queries get introduced to it first by going through the lectures and practice tests available here.
+        https://kodekloud.com/p/json-path-quiz
+        Once you are comfortable head back here:
+        I also have some JSON PATH exercises with Kubernetes Data Objects. Make sure you go through these:
+        https://mmumshad.github.io/json-path-quiz/index.html#!/?questions=questionskub1
+        https://mmumshad.github.io/json-path-quiz/index.html#!/?questions=questionskub2    
+
+        - YAML
+            > Access YAML
+        - JSON Path
+            - Access Dict and List
+                > $.* - Access All
+                > $.[*] - Access All Element in List
+                > $.[0,4] - Access 1st and 5th element of the list
+                > $.[0:8] - First 8 elements
+                > $.[-1:0] - get the last element
+                > $.[-3:0] - Last 3 elements
+            - Access Kubernetes Objects
+                > $.kind
+                > $metadata.name
+                > $.status.containerStatuses[?(@.name == 'redis-container')].restartCount
+                > Access 
+    2. JSON Path with Kubectl
+        - Why JSON Path?
+            - To parse 100 of nodes and 1000s of pods,deployments, etc.
+        - Kubectl
+            - Gets information from api-server in JSON format
+            - Parses and displays easy readble format in console
+            - kubectl get pods -o=jsonpath={.items[*].metadata.name}
+            - loops
+                kubectl get pods -o=jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.cpu}{"\n"}{end}'
+            - custom-columns option in kubectl
+                - kubectl get nodes  -o=custom-columns=NODE:metadata.name, CPU:.status.capacity.cpu
+            - --sort-by option
+
+
 
 
 
