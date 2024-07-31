@@ -1,7 +1,9 @@
 
 URL
 ===
+
 https://github.com/kodekloudhub/certified-kubernetes-administrator-course
+
 
 Certification Tips
 ====================
@@ -24,7 +26,17 @@ Certification Tips
 
 7. In k8s version 1.19+, we can specify the --replicas option to create a deployment with 4 replicas.
     kubectl create deployment --image=nginx nginx --replicas=4 --dry-run=client -o yaml > nginx-deployment.yaml
-    
+08. External URL to install addons
+
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml    
+git clone https://github.com/kodekloudhub/kubernetes-metrics-server.git
+
+journalctl -u kubelet
+
+systemctl status kubelet -n 1000 -o verbose
+kubectl cluster-info
+
+
 01. Introduction
 =================
     a. Into kuberneres
@@ -35,7 +47,7 @@ Certification Tips
 =================
     1. Archicture
         1. Master Node(Control Plane)
-            1. API Server(kube-apiserver)
+            1. API Server(kube-apiserver - 6443)
                 > Authenticate user
                 > vaidate request
                 > retrive data 
@@ -47,7 +59,7 @@ Certification Tips
                 > The manifest located at: /etc/kubernets/manifests/kube-apiserever.yaml
                 > /etc/systemd/system/kuber-apiserver.service(Non Kubeadm)
                 > ps -aux | grep kube-apiserver(Non Kubeadm)
-            2. Scheduler
+            2. Scheduler(10259)
                 1. Only responsible to deciding which pod goes to which node.
                 2. Identify the reosuce requriements for a pod and select best node to place the pod.
                 3. Steps to Select best node
@@ -59,7 +71,7 @@ Certification Tips
                 7. /etc/systemd/system/kube-scheduler.service(Non Kubeadm)
                 8. ps -aux | grep kube-scheduler(Non Kubeadm)
 
-            3. ETCD
+            3. ETCD(2379)
                 1. install etcd
                 2. ./etcd
                 3. Default port 2379
@@ -76,7 +88,7 @@ Certification Tips
                 10. /etc/systemd/system/kube-etcd.service(Non Kubeadm)
                 11. ps -aux | grep kube-etcd(Non Kubeadm)                 
 
-            4. Kubelet
+            4. Kubelet(10250)
                 1. Master in worker node and runs on each node
                 2. Regester node with Kubernetes cluster
                 3. Create PODs
@@ -162,6 +174,7 @@ Certification Tips
         1. High Avaialbility
         2. Load Banancing & Scaling
         3. Relication controller & ReplicaSetde
+            > works accross nodes(ACS Domain)
             > Relication controller - Old
                 - creates and manges replication of pod
             > ReplicaSet - New
@@ -172,6 +185,10 @@ Certification Tips
                 - Scale - Scale the replicas manully using command
                     > Update the yaml file field 'replicas' to a new number
                 - Autoscaling will be done by HPA
+                - Labels and selectors
+                    - Labels are specified to label pods
+                    - Selectors is an atteibute in rc/rs to identify pods to monitor and control
+
         4. Commands
             1. kubectl create -f replicaset.yaml
             2. kubectl get replicaset 
@@ -179,12 +196,41 @@ Certification Tips
             4. kubectl replace -f replicaset.yaml
             5. kubectl scale --replicas=6 -f replicaset.yaml
             6. kubectl scale --replicas=6 replicaset(type) myapp-replicaset(name)
+        5. Sample YAML
+          apiVersion: apps/v1
+          kind: ReplicaSet
+          metadata
+             name: my-replicaset
+             labels
+                name: my-replicaset
+          spec:
+             replciase: 4
+             selector:
+                matchLables:
+                    name: my-pod
+             template:
+                metadata:
+                  name: my-pod
+                  labels:
+                    name: my-pod
+                spec:
+                   containers:
+                      - name: my-pod
+                        image: nginx
+                    
 
     6. Deployments
-        1. Rolling updates are useully done in a normal production env
+        1. Replica set is to ensure all pods are in desired state, if any pod goes down then it will start and make it in running state
+        2. Deployment is a super set of replciaset, that deployment provides following features 
+            a. Update the application with different stratigies.
+                1. Rolling update(Default)
+                2. Recreate
+            b. ensure pods are in desired state
+        3. Rolling updates are useully done in a normal production env
             > This can lead to issue, if any upgrade failes
-        2. Deployments provides a provision to update products/instance seamlessly
-        3. Commands
+        4. Deployments provides a provision to update products/instance seamlessly
+        5. Definition  file same as replicaset excpet kind
+        5. Commands
             1. kubectl get all
 
     7. Namespaces
@@ -196,6 +242,10 @@ Certification Tips
             > for public 
         4. to access resouce from another name space 
             ( <podname>.<namespce>.svc.cluster.local)
+            <podname>.
+            <namespce>.
+            svc. - service or subdomain
+            cluster.local --> domain
             apiVersion: v1
             kind: Namespace
             metadata:
@@ -203,6 +253,20 @@ Certification Tips
         5. kuebctl create namespace dev
         6. kubectl config set-context $(kubectl config curret-context) --namespace=dev
         7. ResouceQuota kind is used to limit the resource usege on a namespace
+            apiVersion: v1
+            kind: ResourceQuota
+            metadata:
+                name: compute-quota
+                namespace: dev
+            spec:
+                hard:
+                    pods: "10"
+                    requests.cpu: "4"
+                    requests.memory: 5Gi
+                    limits.cpu: "10"
+                    limits.memory: 10Gi
+        8. Policy and ResouceQuota is used to restic howmany pods can be created on each name space
+
     8. Services
         1. Enables communication b/w diff components or external
         2. Enalbles loose coupling b/w micro services
@@ -240,7 +304,6 @@ Certification Tips
                     ports:
                         - targetPort: 80
                         port: 80
-                        nodePort: 30008
                     selector:
                         #Label from pod
                         app: myapp
@@ -263,13 +326,13 @@ Certification Tips
                         type: back-end   
             
     9. Imparative vs declarative
-        1. Imparative ( IaaS)
+        1. Imparative ( IaC)
             > Specifies 'what' and 'how' to do 
-            > Specifies steps to confog
+            > Specifies steps to config
             > Ansile , Cheff, Puppet 
             > K8s commands are imparative(run , create, edit, etc.)
             > K8s manifest files
-        2. Declarative ()
+        2. Declarative
             > Specifies What to do only
             > kubectl apply command is declarative
             > apply commands detects the changes in the input file and apply
@@ -304,9 +367,13 @@ Certification Tips
                     - name: nginx-container
                     image: nginx
         '''
-
-  
         2. To modify node, use Binding object to bind to a node
+        '''
+        apiVersion: v1
+        kind: Binding
+        metadata:
+            name: nginx
+
     3. Labels and selectors
         1. Labels used to group objects
             ''' 
@@ -329,6 +396,9 @@ Certification Tips
                 kubectl get pods --show-lables
             3. Annotations are used to specify any other details abuot the pod/company/etc
     4. Taints and Tolerent
+        if there is at least one un-ignored taint with effect NoSchedule then Kubernetes will not schedule the pod onto that node
+        if there is no un-ignored taint with effect NoSchedule but there is at least one un-ignored taint with effect PreferNoSchedule then Kubernetes will try to not schedule the pod onto the node
+        if there is at least one un-ignored taint with effect NoExecute then the pod will be evicted from the node (if it is already running on the node), and will not be scheduled onto the node (if it is not yet running on the node).    
         1. Taints and tolerance are to restrict the pods in a node
         2. Taints
             1. No unwanted pods be placed on tainted node
@@ -406,6 +476,7 @@ Certification Tips
                                 - matchExpressions:
                                     - key: size
                                     operator: Exists
+                                    - values: value
             '''
         3. Affinity type
             1. requiredDuringSchedulingIgnoreDuringExecution
@@ -419,16 +490,18 @@ Certification Tips
 
     8. Resource Requirements and Limits 
         a. Scheduler decides the where to place right pod
-        b. Default resource assign by kubernets for each pod is 1 vCPU, 512Mi or default CPU request of .5 and memory of 256Mi"?
+        b. Default resource assign by kubernets for each pod is 1 vCPU, 512Mi or default CPU request of 0.5 and memory of 256Mi"?
         c. CPU
             1. Spcifies the CPU of a pod
             2. Minimum vale can be 1m(Milli)
-            3. 
         d. Memory
             1. Specifies the Memory of a pod
             2. can be specified as Mebi byte
             3. G - Giga bytes. 1 Giga Byte = 1000 Mega Byte, 1 Meage byte = 1000 Kilo byte, 1 Kilo bytes = 1000bytes
             4. Gi - Gibi bytes :1 Gibi byte = 1024 Mibi Byte, 1 Mebi byte = 1024 Kibi byte, 1 Kibi byte = 1024 bytes
+        e. commands
+            kubectl create quota qtest --hard pods=3,cpu=100,memory=500Mi --namespace limited
+            k set resources deploy nginx --requests cpu=100m,memory=5Mi --limits cpu=200m,memory=20Mi -n limited
     9. DaemonSets
         a. DaemonSets are like replicaset, but in each node one instance of pod will be runnig always.
         b. Daemonset does the following
@@ -508,6 +581,7 @@ Certification Tips
             a. Deployment object create a replicaset for each upgrade
         g. Rollback
             a. kubectl rollout undo <deployment>
+
     2. Command and arguments in pod Definitions
         a. docker CMD command
             - CMD ["sleep", "5"]
@@ -574,7 +648,7 @@ Certification Tips
                 containers:
                     - name: nginx-container
                       image: nginx
-                      commands: ["sleep", "5000"]
+                      command: ["sleep", "5000"]
                       envFrom: 
                         - configMapRef:
                             name: app-config
@@ -628,7 +702,7 @@ Certification Tips
             ''''
 
     6. Multi-Container Pods
-        a. Need for running dependent application run todather
+        a. Need for running dependent application run togather
             - webserver and logging
             '''
             apiVerion: v1
@@ -648,7 +722,8 @@ Certification Tips
             - The Side car pattern
             - The adapter pattern
             - The ambassador pattern
-    7. InitCOntainers
+
+    7. InitContainers
         a. initContianer specifed in pod spec will be started first and then start the remaing containers
     8. Self Healing containers
         a. Kubernetes supports self-healing applications through ReplicaSets and Replication Controllers
@@ -750,7 +825,6 @@ Certification Tips
             > password
                 - use the csv files with following columns, password, user,  user ID and group id
                 - --base-auth-file=myfile.csv
-
             > token
                 - --token-authfile=token.csv
             > certificates 
@@ -828,7 +902,7 @@ Certification Tips
                 - openssl genrsa -out jane.key 2048
             > Admin Create Certificates for the key shared by user
                 - openssl req -new-key jane.key -subj "/CN=jane" -out jane.csr
-            > Use this certificate create get it signed by CA
+            > Use this certificate create get it signed by CA - Done by Admin
                 cat jane.csr | base64
                 '''
                 apiVersion: certificates.k8s.io/v1
@@ -949,7 +1023,7 @@ Certification Tips
         - webhook
             > External Authorization
         - AlwaysAllow, AlwaysDeny
-        - These modes are set in  --authorization-mode=Node, RBAC, Webhook
+        - These modes are set in apiserver  --authorization-mode=Node, RBAC, Webhook
     9. RBAC
         - k8s provides RBAC authorization as an object
         - Create Role
@@ -1268,7 +1342,7 @@ Certification Tips
             > for ex: from ubuntu; run api-install python;run pip install flask;copy . /opt/source;ENTRY_POINT 
                 > This creates layer on top of each
                 > This is called Image Layer(readonly)
-            > Container Later
+            > Container Layer
                 > This is writable layer where container files are stored
                 > Available only when containers are running
             > COPY-ON-WRITE
@@ -1403,7 +1477,7 @@ Certification Tips
             - route command to displays the routing table
             - ip route
             - ip route add  <router-ip> via <gateway-ip> command 
-            - Gatewat acts as door for router
+            - Gateway acts as door for router
             - /proc/sys/net/ipv4/ip_forward 
             - /etc/sys
         > Default Gateway
@@ -1425,7 +1499,7 @@ Certification Tips
         > There are many DNS server solutions out there, in this lecture we will focus on a particular one – CoreDNS
         > Run the executable to start a DNS server. It by default listens on port 53
     4. Network NameSpaces
-        > ROuting Table
+        > Routing Table
         > ARP table
         > Everycontians has its own namespaces
         > ip netns exec <name-space > <ip link > command to create namespace and assign ip
@@ -1437,7 +1511,20 @@ Certification Tips
         > ip -n red link set veth-red up
         > ip -n blue link set veth-blue up
         > Needs virtual switch ( Linux Bridge)
+            - ip link add <veth-red> type veth peer name <veth-red-br>
+            - ip link add <veth-blue> type veth peer name <veth-blue-br>
+            - ip link set veth-red netns red
+            - ip link set veth-red-br master v-net-0
+            - ip link set veth-blue netns red
+            - ip link set veth-blue-br master v-net-0            
+            - ip -n red addr add 192.168.15.1 dev veth-red
+            - ip -n blue addr add 192.168.15.2 dev veth-blue
+            - ip -n red link set veth-red up
+            - ip -n blue link set veth-blue up
+            
+
         > NAT
+            iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERDE
         > While testing the Network Namespaces, if you come across issues where you can't ping one namespace from the other,
          make sure you set the NETMASK while setting IP Address. ie: 192.168.1.10/24
          ip -n red addr add 192.168.1.10/24 dev veth-red
@@ -1459,7 +1546,7 @@ Certification Tips
         > Master 
             - 6443 for Api server
             - 10250 for kubelt
-            - 10251 for scheduler
+            - 10259 for scheduler
             - 10251 for controller
     8. Commands
         ifconfig -a : show the network interfaces
@@ -1799,12 +1886,28 @@ https://www.youtube.com/watch?v=eJQ-Yla85rM&list=PL2We04F3Y_41jYdadX55fdJplDvgNG
         - Kubectl
             - Gets information from api-server in JSON format
             - Parses and displays easy readble format in console
+            - -o wide option displays  more data
             - kubectl get pods -o=jsonpath={.items[*].metadata.name}
             - loops
                 kubectl get pods -o=jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.cpu}{"\n"}{end}'
             - custom-columns option in kubectl
-                - kubectl get nodes  -o=custom-columns=NODE:metadata.name, CPU:.status.capacity.cpu
-            - --sort-by option
+                - kubectl get nodes  -o=custom-columns=<COLUMN-NAME>:metadata.name, CPU:.status.capacity.cpu
+            - kubectl get nodes --sort-by= .status.capacity.cpu
+    3. Advanced Kubectl commands
+        - Identify kubectl commands
+        - Formalie the output in JSON format ( -o json)
+        - Form the JSON path query
+        - JSON Path query with kubectl command
+        kubectl get pods -o=jsonpath='{items[*]}{.metadata.name}{"\t"}{.items[*].status.capacity.cpu}{"\n"}'
+        kubectl get pods -o=jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.cpu}{"\n"}{end}'
+        kubectl config view --kubeconfig=my-kube-config -o jsonpath="{.users[*].name}" > /opt/outputs/users.txt
+        kubectl get pv --sort-by=.spec.capacity.storage > /opt/outputs/storage-capacity-sorted.txt
+        kubectl get pv --sort-by=.spec.capacity.storage -o=custom-columns=NAME:.metadata.name,CAPACITY:.spec.capacity.storage > /opt/outputs/pv-and-capacity-sorted.txt
+        kubectl config view --kubeconfig=my-kube-config -o jsonpath="{.contexts[?(@.context.user=='aws-user')].name}" > /opt/outputs/aws-context-name
+        k get pv -o=custom-columns=NAME:.metadata.name,CAPACITY:.spec.capacity.storage --sort-by=spec.capacity.storage>/opt/outputs/pv-and-capacity-sorted.txt
+
+        k get pv -o=jsonpath="{.contexts[?(@.context.user == 'aws-user')].name}"
+
 
 
 
